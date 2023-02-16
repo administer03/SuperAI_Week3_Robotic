@@ -1,7 +1,7 @@
 # hackatron_w3
 ROS &amp; RL Problem
 
-# Majic Command
+# Magic Command
 first
 ```
 ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
