@@ -80,12 +80,7 @@ class LearningNode(Node):
         self.actions = createActions()
         self.state_space = createStateSpace()
         self.Q_table = createQTable(len(self.state_space), len(self.actions))
-        # print(len(self.state_space), len(self.actions))
-        # print('Initial Q-table:')
-        # print(self.Q_table)
-        # Init log files
-        self.log_sim_info = open(LOG_FILE_DIR+'/LogInfo.txt','w+')
-        self.log_sim_params = open(LOG_FILE_DIR+'/LogParams.txt','w+')
+
         # Learning parameters
         self.T = T_INIT
         self.epsilon = epsilon_INIT
@@ -401,27 +396,13 @@ class LearningNode(Node):
                             self.crash = checkCrash(lidar)
                             state = lidar
                             self.action = getAction(state, self.epsilon, self.shape_action, self.model)
-                            
-                            # if EXPLORATION_FUNCTION == 1 :
-                            #     ( self.action, status_strat ) = softMaxSelection(self.Q_table, state_ind, self.actions, self.T)
-                            # else:
-                            #     ( self.action, status_strat ) = epsiloGreedyExploration(self.Q_table, state_ind, self.actions, self.T)
 
-                
                             status_rda = robotDoAction(self.velPub, self.action)
 
                             self.prev_lidar = lidar
                             self.prev_action = self.action
                             self.prev_state = state
                             self.first_action_taken = True
-
-                            # if not (status_strat == 'softMaxSelection => OK' or status_strat == 'epsiloGreedyExploration => OK'):
-                            #     print('\r\n', status_strat, '\r\n')
-                            #     self.log_sim_info.write('\r\n'+status_strat+'\r\n')
-
-                            # if not status_rda == 'robotDoAction => OK':
-                            #     print('\r\n', status_rda, '\r\n')
-                            #     self.log_sim_info.write('\r\n'+status_rda+'\r\n')
 
                         # Rest of the algorithm
                         else:
@@ -432,25 +413,9 @@ class LearningNode(Node):
 
                             ( reward, done ) = getReward(self.action, self.prev_action, lidar, self.prev_lidar, self.crash)
 
-                            # ( self.Q_table, status_uqt ) = updateQTable(self.Q_table, self.prev_state_ind, self.action, reward, state_ind, self.alpha, self.gamma)
-
-                            # if EXPLORATION_FUNCTION == 1:
-                            #     ( self.action, status_strat ) = softMaxSelection(self.Q_table, state_ind, self.actions, self.T)
-                            # else:
-                            #     ( self.action, status_strat ) = epsiloGreedyExploration(self.Q_table, state_ind, self.actions, self.T)
                             self.memory.append( (self.prev_state, self.action, 0, state, done) )
                             self.action = getAction(lidar, self.epsilon, self.shape_action, self.model)
                             status_rda = robotDoAction(self.velPub, self.action)
-
-                            # if not status_uqt == 'updateQTable => OK':
-                            #     print('\r\n', status_uqt, '\r\n')
-                            #     self.log_sim_info.write('\r\n'+status_uqt+'\r\n')
-                            # if not (status_strat == 'softMaxSelection => OK' or status_strat == 'epsiloGreedyExploration => OK'):
-                            #     print('\r\n', status_strat, '\r\n')
-                            #     self.log_sim_info.write('\r\n'+status_strat+'\r\n')
-                            # if not status_rda == 'robotDoAction => OK':
-                            #     print('\r\n', status_rda, '\r\n')
-                            #     self.log_sim_info.write('\r\n'+status_rda+'\r\n')
 
                             self.ep_reward = self.ep_reward + reward
                             self.ep_reward_arr = np.append(self.ep_reward_arr, reward)
