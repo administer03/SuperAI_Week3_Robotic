@@ -146,37 +146,25 @@ class LearningNode(Node):
     def replay_experience(self):
         state_arr = []
         next_state_arr = []
-        # target_future_arr = []
-        # target_arr = []
         action_arr = []
         reward_arr = []
         minibatch = random.sample(self.memory, self.batch_size)
         for state, action, reward, next_state, done in minibatch:
-            # if len(state.shape) == 1:
             state_arr.append(state)
             next_state_arr.append(next_state)
             action_arr.append(action)
             reward_arr.append(reward)
-            # state = np.expand_dims(state, axis=0)
-            # if len(next_state.shape) == 1:
-            # next_state = np.expand_dims(next_state, axis=0)
-            # target = reward
-            # if not done:
-            #     # print("Predicting...")
-            #     target = (reward + self.gamma * np.max(self.model.predict(next_state, verbose = 0)[0]))
-            #     print(self.model.predict(next_state, verbose = 0)[0])
-            # target_arr.append(target)
         reward_arr = np.asarray(reward_arr)
         next_state_arr = np.asarray(next_state_arr)
         state_arr = np.asarray(state_arr)
+        
         target_arr = reward_arr + self.gamma * np.max(self.model.predict(next_state_arr, verbose=0), axis=1)
         for i in range(len(minibatch)):
             _, _, reward, _, done = minibatch[i]
             if done:
                 target_arr[i] = reward
-        target_future = self.model.predict(state_arr)
+        target_future = self.model.predict(state_arr, verbose=0)
         target_future[np.arange(len(state_arr)), action_arr] = target_arr
-        # target_arr = np.asarray(target_arr)
         print('state')
         print(state_arr.shape)
         print('target_future')
