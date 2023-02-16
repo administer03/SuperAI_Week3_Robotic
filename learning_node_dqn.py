@@ -43,10 +43,12 @@ MIN_TIME_BETWEEN_ACTIONS = 0.0
 ALPHA = 0.5
 GAMMA = 0.9
 
+# Softmax Q-table exploration function
 T_INIT = 25
 T_GRAD = 0.95
 T_MIN = 0.001
 
+# Epsilon Greedy Q-table exploration function 
 epsilon_INIT = 0.99
 epsilon_GRAD = 0.96
 epsilon_MIN = 0.05
@@ -54,7 +56,7 @@ epsilon_MIN = 0.05
 # 1 - Softmax , 2 - epsilon greedy
 EXPLORATION_FUNCTION = 1
 
-# Initial position
+# Initial Robot position
 X_INIT = -2.0
 Y_INIT = -0.5
 THETA_INIT = 0.0
@@ -178,7 +180,7 @@ class LearningNode(Node):
         # Log date to files
         text = '\r\n' + 'SIMULATION START ==> ' + dt_string_start + '\r\n\r\n'
         print(text)
-        self.log_sim_info.write(text)
+        # self.log_sim_info.write(text)
         self.log_sim_params.write(text)
 
         # Log simulation parameters
@@ -267,7 +269,7 @@ class LearningNode(Node):
                 if step_time > 2:
                     text = '\r\nTOO BIG STEP TIME: %.2f s' % step_time
                     # print(text)
-                    self.log_sim_info.write(text+'\r\n')
+                    # self.log_sim_info.write(text+'\r\n')
 
                 # End of Learning
                 if self.episode > MAX_EPISODES:
@@ -291,7 +293,7 @@ class LearningNode(Node):
                     text = text + 'Simulation time: %d:%d:%d  h/m/s \r\n' % (sim_time_h, sim_time_m, sim_time_s)
                     text = text + 'Real time: %d:%d:%d  h/m/s \r\n' % (real_time_h, real_time_m, real_time_s)
                     print(text)
-                    self.log_sim_info.write('\r\n'+text+'\r\n')
+                    # self.log_sim_info.write('\r\n'+text+'\r\n')
                     self.log_sim_params.write(text+'\r\n')
                     # Log data to file
                     saveQTable(LOG_FILE_DIR+'/Qtable.csv', self.Q_table)
@@ -306,7 +308,7 @@ class LearningNode(Node):
                     np.savetxt(LOG_FILE_DIR+'/t_per_episode.csv', self.t_per_episode, delimiter = ' , ')
 
                     # Close files and shut down node
-                    self.log_sim_info.close()
+                    # self.log_sim_info.close()
                     self.log_sim_params.close()
                     raise SystemExit
                 else:
@@ -343,7 +345,7 @@ class LearningNode(Node):
                         else:
                             text = text + 'epsilon = %f \r\n' % self.epsilon
                         print(text)
-                        self.log_sim_info.write('\r\n'+text)
+                        # self.log_sim_info.write('\r\n'+text)
 
                         self.steps_per_episode = np.append(self.steps_per_episode, self.ep_steps)
                         self.reward_per_episode = np.append(self.reward_per_episode, self.ep_reward)
