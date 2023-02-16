@@ -15,6 +15,7 @@ sys.path.insert(0, MODULES_PATH)
 from gazebo_msgs.msg._model_state import ModelState
 from geometry_msgs.msg import Twist
 import random
+import os
 
 from Qlearning import *
 from Lidar import *
@@ -32,7 +33,9 @@ from tensorflow import keras
 from keras.models import Sequential
 from keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
-import random
+
+# Continue training from saved checkpoint
+LOAD_CHECKPOINT = True
 
 # Episode parameters
 MAX_EPISODES = 400
@@ -72,6 +75,8 @@ Q_SOURCE_DIR = ''
 class LearningNode(Node):
     def __init__(self):
         super().__init__('learning_node')
+        
+        # Timer, Reset, Publisher, Request
         self.timer_period = .5 # seconds
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.reset = self.create_client(Empty, '/reset_simulation')
@@ -79,8 +84,10 @@ class LearningNode(Node):
         self.velPub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.dummy_req = Empty_Request()
         self.reset.call_async(self.dummy_req)
-        self.actions = createActions()
-        self.state_space = createStateSpace()
+        
+        # Action, State space, Q table
+        self.actions = createActions() # If use, change actions in DQN.py
+        self.state_space = createStateSpace() # If use, change state_space in DQN.py
         self.Q_table = createQTable(len(self.state_space), len(self.actions))
 
         # Learning parameters
@@ -88,6 +95,7 @@ class LearningNode(Node):
         self.epsilon = epsilon_INIT
         self.alpha = ALPHA
         self.gamma = GAMMA
+        
         # Episodes, steps, rewards
         self.ep_steps = 0
         self.ep_reward = 0
@@ -99,9 +107,11 @@ class LearningNode(Node):
         self.ep_reward_arr = np.array([])
         self.steps_per_episode = np.array([])
         self.reward_per_episode = np.array([])
+        
         # initial position
         self.robot_in_pos = False
         self.first_action_taken = False
+        
         # init time
         self.t_0 = self.get_clock().now()
         self.t_start = self.get_clock().now()
@@ -118,6 +128,7 @@ class LearningNode(Node):
         self.epsilon_per_episode = np.array([])
         self.t_per_episode = np.array([])
         
+        # Insert your own parameters here
         self.shape_state = 360
         self.shape_action = 3
         self.gamma = GAMMA
@@ -128,18 +139,25 @@ class LearningNode(Node):
         self.memory = deque([], maxlen=2500)
         self.batch_size = 32
  
+    # Model defining
     def build_model(self, learning_rate):
-        model = keras.Sequential(
-            [
-             keras.layers.Dense(24, input_dim = 360, activation='relu'),
-             keras.layers.Dense(24, activation = 'relu'),
-             keras.layers.Dense(self.shape_action, activation = 'linear')
-            ]
-        ) 
-        model.compile(loss = 'mean_squared_error',
-                      optimizer = keras.optimizers.Adam(lr = learning_rate))
+        if LOAD_CHECKPOINT:
+            model = keras.models.load_model('models/last_checkpoint')
+            with open('models/last_checkpoint/epsilon.txt', 'r') as f:
+                self.epsilon = float(f.read())
+        else:
+            model = keras.Sequential(
+                [
+                keras.layers.Dense(24, input_dim = 360, activation='relu'),
+                keras.layers.Dense(24, activation = 'relu'),
+                keras.layers.Dense(self.shape_action, activation = 'linear')
+                ]
+            ) 
+            model.compile(loss = 'mean_squared_error',
+                        optimizer = keras.optimizers.Adam(lr = learning_rate))
         return model
     
+    # Model training
     def replay_experience(self):
         state_arr = []
         next_state_arr = []
@@ -172,6 +190,7 @@ class LearningNode(Node):
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
                
+    # Log (not important)
     def log_init(self):
         # Date
         now_start = datetime.now()
@@ -217,6 +236,7 @@ class LearningNode(Node):
         text = text + 'CONST_ANGULAR_SPEED_TURN = %.3f \r\n' % CONST_ANGULAR_SPEED_TURN
         self.log_sim_params.write(text)
     
+    # can ignore this
     def wait_for_message(
         node,
         topic: str,
@@ -258,12 +278,18 @@ class LearningNode(Node):
 
         return (False, None)
 
+    # store memory (done is boolean of episode end)
     def store_memory(self, state, action, reward, next_state, done):
         self.memory.append( (state, action, reward, next_state, done) )
         
+    # main function
     def timer_callback(self):
             _, msgScan = self.wait_for_message('/scan', LaserScan)
+            # print('______________')
+            # print(msgScan)
             step_time = (self.get_clock().now() - self.t_step).nanoseconds / 1e9
+            
+            # Check each step time duration
             if step_time > MIN_TIME_BETWEEN_ACTIONS:
                 self.t_step = self.get_clock().now()
                 if step_time > 2:
@@ -271,7 +297,7 @@ class LearningNode(Node):
                     # print(text)
                     # self.log_sim_info.write(text+'\r\n')
 
-                # End of Learning
+                # End of Learning only when episodes more than max
                 if self.episode > MAX_EPISODES:
                     # simulation time
                     sim_time = (self.get_clock().now() - self.t_sim_start).nanoseconds / 1e9
@@ -311,9 +337,11 @@ class LearningNode(Node):
                     # self.log_sim_info.close()
                     self.log_sim_params.close()
                     raise SystemExit
+                
+                # Learning doesn't end
                 else:
                     ep_time = (self.get_clock().now() - self.t_ep).nanoseconds / 1e9
-                    # End of en Episode
+                    # End of an Episode
                     if self.crash or self.ep_steps >= MAX_STEPS_PER_EPISODE:
                         robotStop(self.velPub)
                         if self.crash:
@@ -340,6 +368,8 @@ class LearningNode(Node):
                         text = text + 'episode steps: %d \r\n' % self.ep_steps
                         text = text + 'episode reward: %.2f \r\n' % self.ep_reward
                         text = text + 'episode max | avg | min reward: %.2f | %.2f | %.2f \r\n' % (self.reward_max, self.reward_avg, self.reward_min)
+                        
+                        # Write text for exploration function for q table
                         if EXPLORATION_FUNCTION == 1:
                             text = text + 'T = %f \r\n' % self.T
                         else:
@@ -368,7 +398,14 @@ class LearningNode(Node):
                         self.episode = self.episode + 1
                         if len(self.memory) > self.batch_size :
                             self.replay_experience()
-                        
+                            if not os.path.exists('models'):
+                                os.makedirs('models')
+                            self.model.save('models/last_checkpoint')
+                            with open("models/last_checkpoint/epsilon.txt", "w") as f:
+                                f.write(str(self.epsilon))
+
+                    
+                    # If the Episode can continue    
                     else:
                         self.ep_steps = self.ep_steps + 1
                         # Initial position
@@ -376,12 +413,16 @@ class LearningNode(Node):
                             robotStop(self.velPub)
                             self.ep_steps = self.ep_steps - 1
                             self.first_action_taken = False
-                            # init pos
-                            if RANDOM_INIT_POS:
-                                ( x_init , y_init , theta_init ) = robotSetRandomPos(self.setPosPub)
-                            else:
-                                ( x_init , y_init , theta_init ) = robotSetPos(self.setPosPub, X_INIT, Y_INIT, THETA_INIT)
-
+                            
+                            # get random position from original
+                            # don't need to use since we have fixed coordinates
+                            # if RANDOM_INIT_POS:
+                            #     ( x_init , y_init , theta_init ) = robotSetRandomPos(self.setPosPub)
+                            # else:
+                            #     ( x_init , y_init , theta_init ) = robotSetPos(self.setPosPub, X_INIT, Y_INIT, THETA_INIT)
+                            
+                            ( x_init , y_init , theta_init ) = robotSetPos(self.setPosPub, X_INIT, Y_INIT, THETA_INIT)
+                            
                             _, odomMsg = self.wait_for_message('/odom', Odometry)
                             ( x , y ) = getPosition(odomMsg)
                             theta = degrees(getRotation(odomMsg))
@@ -391,13 +432,15 @@ class LearningNode(Node):
                                 #sleep(2)
                             else:
                                 self.robot_in_pos = False
-                        # First action
+                                
+                        # First action in an Episode
                         elif not self.first_action_taken:
-                            ( lidar, angles ) = lidarScan(msgScan)
-                            ( state_ind, x1, x2 ,x3 ,x4 ) = scanDiscretization(self.state_space, lidar)
+                            ( lidar, angles ) = lidarScan(msgScan) # get lidar data
+                            lidar = get_lidar(lidar, n=1)
+                            # ( state_ind, x1, x2 ,x3 ,x4 ) = scanDiscretization(self.state_space, lidar)
                             self.crash = checkCrash(lidar)
-                            state = lidar
-                            self.action = getAction(state, self.epsilon, self.shape_action, self.model)
+                            state = lidar # define state to be lidar 
+                            self.action = getAction(state, self.epsilon, self.shape_action, self.model) # getAction func in DQN.py
 
                             status_rda = robotDoAction(self.velPub, self.action)
 
@@ -409,14 +452,19 @@ class LearningNode(Node):
                         # Rest of the algorithm
                         else:
                             ( lidar, angles ) = lidarScan(msgScan)
+                            # Divide lidar from 360 values to 360/n values
+                            lidar = get_lidar(lidar, n=1)
+                            
                             # ( state_ind, x1, x2 ,x3 ,x4 ) = scanDiscretization(self.state_space, lidar)
                             self.crash = checkCrash(lidar)
                             state = lidar
-
+                            self.shape_state = state.shape[0]
+                            # get reward from getReward func in DQN.py
                             ( reward, done ) = getReward(self.action, self.prev_action, lidar, self.prev_lidar, self.crash)
 
-                            self.memory.append( (self.prev_state, self.action, 0, state, done) )
-                            self.action = getAction(lidar, self.epsilon, self.shape_action, self.model)
+                            self.memory.append( (self.prev_state, self.action, 0, state, done) ) # store in memory
+                            self.action = getAction(lidar, self.epsilon, self.shape_action, self.model) # getAction func in DQN.py
+                            
                             status_rda = robotDoAction(self.velPub, self.action)
 
                             self.ep_reward = self.ep_reward + reward

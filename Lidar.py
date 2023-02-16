@@ -39,6 +39,9 @@ def lidarScan(msgScan):
     # distances in [m], angles in [degrees]
     return ( distances, angles )
 
+def get_lidar(lidar, n=1):
+    return lidar[::n]
+
 # Discretization of lidar scan
 def scanDiscretization(state_space, lidar):
     x1 = 2 # Left zone (no obstacle detected)
