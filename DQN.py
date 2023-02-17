@@ -26,6 +26,20 @@ HORIZON_WIDTH = 75
 
 T_MIN = 0.001
 
+# Create actions
+def createActions():
+    actions = np.array([0,1,2])
+    return actions
+
+# Create state space for DQN
+def createStateSpace():
+    x1 = set((0,1,2))
+    x2 = set((0,1,2))
+    x3 = set((0,1,2,3))
+    x4 = set((0,1,2,3))
+    state_space = set(product(x1,x2,x3,x4))
+    return np.array(list(state_space))
+
 def getAction(state, epsilon, shape_action, model):
     if len(state.shape) == 1:
         state = np.expand_dims(state, axis=0)
@@ -34,6 +48,11 @@ def getAction(state, epsilon, shape_action, model):
     else:
         action_vals = model.predict(state)
         return np.argmax(action_vals[0])
+        
+def getBestAction(state, model):
+    state = np.expand_dims(state, axis=0)
+    action_vals = model.predict(state)
+    return np.argmax(action_vals[0])
 
 
 # Reward function for Q-learning - table
