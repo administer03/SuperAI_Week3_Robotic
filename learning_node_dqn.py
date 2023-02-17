@@ -34,13 +34,6 @@ from keras.models import Sequential
 from keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 
-# Continue training from saved checkpoint
-LOAD_CHECKPOINT = True
-
-# Episode parameters
-MAX_EPISODES = 400
-MAX_STEPS_PER_EPISODE = 500
-MIN_TIME_BETWEEN_ACTIONS = 0.0
 
 # Learning parameters
 ALPHA = 0.5
@@ -71,6 +64,19 @@ LOG_FILE_DIR = DATA_PATH + '/Log_learning'
 
 # Q table source file
 Q_SOURCE_DIR = ''
+
+###################################################focus here##################################################################
+
+# Continue training from saved checkpoint
+LOAD_CHECKPOINT = False
+
+# Episode parameters
+MAX_EPISODES = 400
+MAX_STEPS_PER_EPISODE = 500
+MIN_TIME_BETWEEN_ACTIONS = 0.0
+############################################################################################################################
+
+
 
 class LearningNode(Node):
     def __init__(self):
@@ -127,7 +133,9 @@ class LearningNode(Node):
         self.T_per_episode = np.array([])
         self.epsilon_per_episode = np.array([])
         self.t_per_episode = np.array([])
-        
+
+###################################################focus here##################################################################
+
         # Insert your own parameters here
         self.shape_state = 360
         self.shape_action = 3
@@ -189,6 +197,14 @@ class LearningNode(Node):
         self.model.fit(state_arr, target_arr, epochs=1, verbose = 0)
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+
+    # store memory (done is boolean of episode end)
+    def store_memory(self, state, action, reward, next_state, done):
+        self.memory.append( (state, action, reward, next_state, done) )
+
+###########################################################################################################################
+
+
                
     # Log (not important)
     def log_init(self):
@@ -278,10 +294,7 @@ class LearningNode(Node):
 
         return (False, None)
 
-    # store memory (done is boolean of episode end)
-    def store_memory(self, state, action, reward, next_state, done):
-        self.memory.append( (state, action, reward, next_state, done) )
-        
+
     # main function
     def timer_callback(self):
             _, msgScan = self.wait_for_message('/scan', LaserScan)
@@ -393,6 +406,7 @@ class LearningNode(Node):
                         self.first_action_taken = False
                         if self.T > T_MIN:
                             self.T = T_GRAD * self.T
+###################################################focus here##################################################################
                         if self.epsilon > epsilon_MIN:
                             self.epsilon = epsilon_GRAD * self.epsilon
                         self.episode = self.episode + 1
@@ -403,6 +417,8 @@ class LearningNode(Node):
                             self.model.save('models/last_checkpoint')
                             with open("models/last_checkpoint/epsilon.txt", "w") as f:
                                 f.write(str(self.epsilon))
+################################################################################################################################
+
 
                     
                     # If the Episode can continue    
@@ -436,12 +452,21 @@ class LearningNode(Node):
                         # First action in an Episode
                         elif not self.first_action_taken:
                             ( lidar, angles ) = lidarScan(msgScan) # get lidar data
-                            lidar = get_lidar(lidar, n=1)
+###################################################focus here##################################################################
+                            # initial n 
+                            n = 1
+                            if n != 1:
+                                lidar = get_lidar(lidar, n)
+                                self.shape_state = lidar.shape[0]
+                                self.model = self.build_model(0.001)
+                            else:
+                                lidar = get_lidar(lidar, n)
+
                             # ( state_ind, x1, x2 ,x3 ,x4 ) = scanDiscretization(self.state_space, lidar)
                             self.crash = checkCrash(lidar)
                             state = lidar # define state to be lidar 
                             self.action = getAction(state, self.epsilon, self.shape_action, self.model) # getAction func in DQN.py
-
+#########################################################################################################################
                             status_rda = robotDoAction(self.velPub, self.action)
 
                             self.prev_lidar = lidar
@@ -452,9 +477,17 @@ class LearningNode(Node):
                         # Rest of the algorithm
                         else:
                             ( lidar, angles ) = lidarScan(msgScan)
+###################################################focus here##################################################################
                             # Divide lidar from 360 values to 360/n values
-                            lidar = get_lidar(lidar, n=1)
-                            
+                            # initial n 
+                            n = 1
+                            if n != 1:
+                                lidar = get_lidar(lidar, n)
+                                self.shape_state = lidar.shape[0]
+                                self.model = self.build_model(0.001)
+                            else:
+                                lidar = get_lidar(lidar, n)
+
                             # ( state_ind, x1, x2 ,x3 ,x4 ) = scanDiscretization(self.state_space, lidar)
                             self.crash = checkCrash(lidar)
                             state = lidar
@@ -464,9 +497,9 @@ class LearningNode(Node):
 
                             self.memory.append( (self.prev_state, self.action, 0, state, done) ) # store in memory
                             self.action = getAction(lidar, self.epsilon, self.shape_action, self.model) # getAction func in DQN.py
-                            
-                            status_rda = robotDoAction(self.velPub, self.action)
+#########################################################################################################################
 
+                            status_rda = robotDoAction(self.velPub, self.action)
                             self.ep_reward = self.ep_reward + reward
                             self.ep_reward_arr = np.append(self.ep_reward_arr, reward)
                             self.prev_lidar = lidar
@@ -474,11 +507,8 @@ class LearningNode(Node):
                             self.prev_state = state
                             self.first_action_taken = True
 
-
-
 def main(args=None):
     rclpy.init(args=args)
-
     movebase_publisher = LearningNode()
     try:
         rclpy.spin(movebase_publisher)
