@@ -9,8 +9,8 @@ from rclpy.node import Node
 from std_srvs.srv import Empty
 from std_srvs.srv._empty import Empty_Request
 import sys
-DATA_PATH = '/mnt/c/Users/lenovo/test/ros2_ql/Data'
-MODULES_PATH = '/mnt/c/Users/lenovo/test/ros2_ql/scripts'
+DATA_PATH = '/home/pritepakorn01/ros2_ql/Data'
+MODULES_PATH = '/home/pritepakorn01/ros2_ql/scripts'
 sys.path.insert(0, MODULES_PATH)
 from gazebo_msgs.msg._model_state import ModelState
 from geometry_msgs.msg import Twist
@@ -458,9 +458,11 @@ class LearningNode(Node):
                             if n != 1:
                                 lidar = get_lidar(lidar, n)
                                 self.shape_state = lidar.shape[0]
+                                print(self.shape_state)
                                 self.model = self.build_model(0.001)
                             else:
                                 lidar = get_lidar(lidar, n)
+                                print(self.shape_state)
 
                             # ( state_ind, x1, x2 ,x3 ,x4 ) = scanDiscretization(self.state_space, lidar)
                             self.crash = checkCrash(lidar)
@@ -485,8 +487,10 @@ class LearningNode(Node):
                                 lidar = get_lidar(lidar, n)
                                 self.shape_state = lidar.shape[0]
                                 self.model = self.build_model(0.001)
+                                print(self.shape_state)
                             else:
                                 lidar = get_lidar(lidar, n)
+                                print(self.shape_state)
 
                             # ( state_ind, x1, x2 ,x3 ,x4 ) = scanDiscretization(self.state_space, lidar)
                             self.crash = checkCrash(lidar)
