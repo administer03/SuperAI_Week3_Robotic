@@ -16,6 +16,7 @@ from gazebo_msgs.msg._model_state import ModelState
 from geometry_msgs.msg import Twist
 import random
 import os
+import pickle
 
 from Qlearning import *
 from Lidar import *
@@ -143,16 +144,23 @@ class LearningNode(Node):
         self.epsilon = epsilon_INIT
         self.epsilon_min = 0.001
         self.epsilon_decay = 0.995
-        self.model = self.build_model(0.001)
         self.memory = deque([], maxlen=2500)
+        self.model = self.build_model(0.001)
         self.batch_size = 32
  
     # Model defining
     def build_model(self, learning_rate):
         if LOAD_CHECKPOINT:
             model = keras.models.load_model('models/last_checkpoint')
-            with open('models/last_checkpoint/epsilon.txt', 'r') as f:
-                self.epsilon = float(f.read())
+            with open('models/last_checkpoint/metadata.pkl', 'rb') as f:
+                metadata = pickle.load(f)
+            self.epsilon = metadata['epsilon']
+            self.memory = metadata['memory']
+            print('checkpoint loaded from models/last_checkpoint')
+            print('epsilon:', self.epsilon)
+            print('len(memory):', len(self.memory))
+            # with open('models/last_checkpoint/epsilon.txt', 'r') as f:
+            #     self.epsilon = float(f.read())
         else:
             model = keras.Sequential(
                 [
@@ -415,8 +423,17 @@ class LearningNode(Node):
                             if not os.path.exists('models'):
                                 os.makedirs('models')
                             self.model.save('models/last_checkpoint')
-                            with open("models/last_checkpoint/epsilon.txt", "w") as f:
-                                f.write(str(self.epsilon))
+                            metadata = {
+                                'epsilon': self.epsilon,
+                                'memory': self.memory
+                            }
+                            with open("models/last_checkpoint/metadata.pkl", "wb") as f:
+                                pickle.dump(metadata, f)
+                            print('checkpoint saved to models/last_checkpoint')
+                            print('epsilon:', self.epsilon)
+                            print('len(memory):', len(self.memory))
+                            # with open("models/last_checkpoint/epsilon.txt", "w") as f:
+                            #     f.write(str(self.epsilon))
 ################################################################################################################################
 
 
